@@ -109,6 +109,38 @@ Deno.serve(async (req) => {
         results.push({ user_id, status: "error", error: upsertErr.message });
       } else {
         console.log(`Synced ${today} for user ${user_id} ✅`);
+        
+        // --- NEW: Trigger Telegram Briefing ---
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("telegram_chat_id, notification_channel, display_name")
+          .eq("id", user_id)
+          .single();
+
+        if (profile?.telegram_chat_id && (profile.notification_channel === 'telegram' || profile.notification_channel === 'both')) {
+          const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+          if (botToken) {
+            const message = `☀️ *Good morning, ${profile.display_name || 'Champion'}!*\n\n` +
+              `Your Garmin stats for ${today}:\n` +
+              `• Sleep Score: *${row.sleep_score || 'N/A'}*\n` +
+              `• HRV (RMSSD): *${row.hrv_rmssd || 'N/A'}ms*\n` +
+              `• Body Battery: *${row.body_battery_high || 'N/A'} (High) / ${row.body_battery_low || 'N/A'} (Low)*\n` +
+              `• Avg Stress: *${row.avg_stress || 'N/A'}*\n\n` +
+              `View your full dashboard: https://perf-app.vercel.app/dashboard`;
+
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: profile.telegram_chat_id,
+                text: message,
+                parse_mode: 'Markdown'
+              })
+            });
+            console.log(`Telegram brief sent to ${user_id} 🚀`);
+          }
+        }
+
         results.push({ user_id, status: "success", date: today });
       }
     } catch (err: any) {
