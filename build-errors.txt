@@ -1,0 +1,22 @@
+
+> perf-app@0.1.0 build
+> next build
+
+  Γû▓ Next.js 14.2.3
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+Failed to compile.
+
+./supabase/functions/garmin-sync/index.ts:6:30
+Type error: Cannot find module 'https://esm.sh/@supabase/supabase-js@2' or its corresponding type declarations.
+
+  4 | // Schedule: set up via Supabase Dashboard > Database > Extensions > pg_cron
+  5 |
+> 6 | import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    |                              ^
+  7 | import { GarminConnect } from "npm:garmin-connect";
+  8 |
+  9 | const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
