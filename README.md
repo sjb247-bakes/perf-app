@@ -36,3 +36,4 @@ ENCRYPTION_SECRET=
 ## Deploy Edge Function
 
 See `supabase/functions/garmin-sync/DEPLOY.md` for full instructions.
+# perf-app
