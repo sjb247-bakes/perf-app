@@ -3,11 +3,11 @@
 // Deploy: supabase functions deploy garmin-sync
 // Schedule: set up via Supabase Dashboard > Database > Extensions > pg_cron
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { GarminConnect } from "npm:garmin-connect";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { GarminConnect } from "npm:garmin-connect@1.4.1";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("INTERNAL_SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("INTERNAL_SERVICE_ROLE_KEY")!;
 const ENCRYPTION_SECRET = Deno.env.get("ENCRYPTION_SECRET")!;
 
 // --- AES-256-GCM Decrypt (mirrors lib/crypto.ts) ---
@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
 
       // Fetch metrics
       const [sleepData, hrvData, wellnessData] = await Promise.allSettled([
-        gc.getSleepData(displayName, today),
-        gc.getHrvData(today),
+        gc.getSleepData(today),
+        gc.getHeartRateVariability(today),
         gc.getDailyWellness(today),
       ]);
 
@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
       const row = {
         user_id,
         date: today,
-        sleep_score: sleep?.dailySleepDTO?.sleepScores?.overall?.value ?? null,
-        hrv_rmssd: hrv?.hrvSummary?.rmssd ?? null,
+        sleep_score: sleep?.dailySleepDTO?.sleepScore ?? null,
+        hrv_rmssd: hrv?.hrvSummary?.lastNightAvg ?? null,
         body_battery_high: wellness?.bodyBatteryHighLevel ?? null,
         body_battery_low: wellness?.bodyBatteryLowLevel ?? null,
         avg_stress: wellness?.averageStressLevel ?? null,

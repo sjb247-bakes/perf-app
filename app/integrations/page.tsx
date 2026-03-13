@@ -68,7 +68,20 @@ export default function IntegrationsPage() {
     setLoading(false)
   }
 
+  const handleStravaConnect = () => {
+    const clientId = process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID
+    if (!clientId) {
+      setStatus({ type: 'error', message: 'Strava Client ID not configured. Please check .env.local' })
+      return
+    }
+    const redirectUri = `${window.location.origin}/api/auth/strava/callback`
+    const scope = 'read,activity:read_all'
+    const url = `https://www.strava.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`
+    window.location.href = url
+  }
+
   const isGarminConnected = integrations.some(i => i.service === 'garmin')
+  const isStravaConnected = integrations.some(i => i.service === 'strava')
 
   if (pageLoading) {
     return (
@@ -176,21 +189,31 @@ export default function IntegrationsPage() {
             </form>
           </Card>
 
-          {/* Strava (Stub) */}
-          <Card className="bg-zinc-900 border-zinc-800 text-white opacity-60">
+          {/* Strava */}
+          <Card className={`bg-zinc-900 border-zinc-800 text-white transition-opacity ${!isStravaConnected && 'opacity-90'}`}>
             <div className="bg-orange-600 px-6 py-2 flex items-center gap-2">
               <Activity className="h-4 w-4 text-white" />
               <span className="text-xs font-bold uppercase tracking-wider">Strava</span>
             </div>
             <CardHeader>
-              <CardTitle>Strava Integration</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                Strava Integration
+                {isStravaConnected && (
+                  <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded-full border border-orange-500/50">
+                    Connected
+                  </span>
+                )}
+              </CardTitle>
               <CardDescription className="text-zinc-400">
-                Coming Soon: Connect your Strava account to sync your activities and training load.
+                Connect your Strava account to sync your activities and layer your training load over your recovery data.
               </CardDescription>
             </CardHeader>
             <CardFooter>
-              <Button disabled className="w-full bg-orange-600 text-white font-semibold">
-                Connect Strava
+              <Button 
+                onClick={handleStravaConnect}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold"
+              >
+                {isStravaConnected ? 'Reconnect Strava' : 'Connect Strava'}
               </Button>
             </CardFooter>
           </Card>
