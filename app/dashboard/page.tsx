@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
-import { Activity, Moon, Battery, Zap, Timer, Map, TrendingDown, TrendingUp, Settings } from 'lucide-react'
+import { Activity, Moon, Battery, Zap, Timer, Map, TrendingUp, Settings, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
 export default function Dashboard() {
@@ -36,30 +36,17 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      setUser(user)
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) return
+      setUser(authUser)
 
-      // 1. Fetch Latest Garmin Wellness
-      const { data: garminData } = await supabase
-        .from('garmin_daily')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false })
-        .limit(1)
-        .single()
+      const [garminRes, stravaRes] = await Promise.all([
+        supabase.from('garmin_daily').select('*').eq('user_id', authUser.id).order('date', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('strava_activities').select('*').eq('user_id', authUser.id).order('start_date', { ascending: false }).limit(5)
+      ])
       
-      if (garminData) setWellness(garminData)
-
-      // 2. Fetch Recent Strava Activities
-      const { data: stravaData } = await supabase
-        .from('strava_activities')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('start_date', { ascending: false })
-        .limit(5)
-      
-      if (stravaData) setActivities(stravaData)
+      if (garminRes.data) setWellness(garminRes.data)
+      if (stravaRes.data) setActivities(stravaRes.data)
 
     } catch (e) {
       console.error('Failed to fetch dashboard data:', e)
@@ -68,13 +55,14 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
-        <div className="text-zinc-400 text-sm animate-pulse">Synchronizing performance data...</div>
-      </div>
-    )
-  }
+  const SkeletonCard = () => (
+    <Card className="bg-zinc-900 border-zinc-800 animate-pulse">
+      <CardContent className="pt-6 h-32">
+        <div className="h-4 w-24 bg-zinc-800 rounded mb-4" />
+        <div className="h-8 w-16 bg-zinc-800 rounded" />
+      </CardContent>
+    </Card>
+  )
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950 text-white pb-12">
@@ -82,13 +70,14 @@ export default function Dashboard() {
       <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <h1 className="text-xl font-black tracking-tighter uppercase italic text-blue-500">Performance app</h1>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
              <button 
                 onClick={handleSync}
-                disabled={syncing}
-                className="text-[10px] uppercase font-bold tracking-widest px-3 py-1 bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                disabled={syncing || loading}
+                className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest px-3 py-1.5 bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors disabled:opacity-50"
              >
-                {syncing ? 'Syncing...' : 'Sync Now'}
+                <RefreshCw className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync'}
              </button>
              <Link href="/admin" className="text-xs text-zinc-500 hover:text-white transition-colors">Admin</Link>
              <Link href="/integrations">
@@ -103,56 +92,64 @@ export default function Dashboard() {
         <div>
           <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500 mb-4">Readiness & Recovery</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="bg-zinc-900 border-zinc-800 text-white">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-zinc-400">Sleep Score</p>
-                  <Moon className="h-4 w-4 text-blue-400" />
-                </div>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-4xl font-black">{wellness?.sleep_score || '--'}</span>
-                  <span className="text-xs text-zinc-500">/ 100</span>
-                </div>
-              </CardContent>
-            </Card>
+            {loading ? (
+              <>
+                <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+              </>
+            ) : (
+              <>
+                <Card className="bg-zinc-900 border-zinc-800 text-white">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-zinc-400">Sleep Score</p>
+                      <Moon className="h-4 w-4 text-blue-400" />
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-4xl font-black">{wellness?.sleep_score || '--'}</span>
+                      <span className="text-xs text-zinc-500">/ 100</span>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card className="bg-zinc-900 border-zinc-800 text-white">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-zinc-400">HRV (Last Night)</p>
-                  <Activity className="h-4 w-4 text-green-400" />
-                </div>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-4xl font-black">{wellness?.hrv_rmssd || '--'}</span>
-                  <span className="text-xs text-zinc-500">ms</span>
-                </div>
-              </CardContent>
-            </Card>
+                <Card className="bg-zinc-900 border-zinc-800 text-white">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-zinc-400">HRV (Last Night)</p>
+                      <Activity className="h-4 w-4 text-green-400" />
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-4xl font-black">{wellness?.hrv_rmssd || '--'}</span>
+                      <span className="text-xs text-zinc-500">ms</span>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card className="bg-zinc-900 border-zinc-800 text-white">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-zinc-400">Body Battery</p>
-                  <Battery className="h-4 w-4 text-yellow-400" />
-                </div>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-4xl font-black">{wellness?.body_battery_high || '--'}</span>
-                  <span className="text-xs text-zinc-500">Peak</span>
-                </div>
-              </CardContent>
-            </Card>
+                <Card className="bg-zinc-900 border-zinc-800 text-white">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-zinc-400">Body Battery</p>
+                      <Battery className="h-4 w-4 text-yellow-400" />
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-4xl font-black">{wellness?.body_battery_high || '--'}</span>
+                      <span className="text-xs text-zinc-500">Peak</span>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <Card className="bg-zinc-900 border-zinc-800 text-white">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-zinc-400">Avg Stress</p>
-                  <Zap className="h-4 w-4 text-purple-400" />
-                </div>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-4xl font-black">{wellness?.avg_stress || '--'}</span>
-                </div>
-              </CardContent>
-            </Card>
+                <Card className="bg-zinc-900 border-zinc-800 text-white">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-zinc-400">Avg Stress</p>
+                      <Zap className="h-4 w-4 text-purple-400" />
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <span className="text-4xl font-black">{wellness?.avg_stress || '--'}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
         </div>
 
@@ -161,7 +158,11 @@ export default function Dashboard() {
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">Recent Activities</h2>
             <div className="space-y-3">
-              {activities.length > 0 ? (
+              {loading ? (
+                [1, 2, 3].map(i => (
+                  <Card key={i} className="bg-zinc-900 border-zinc-800 h-24 animate-pulse" />
+                ))
+              ) : activities.length > 0 ? (
                 activities.map((act) => (
                   <Card key={act.id} className="bg-zinc-900 border-zinc-800 text-white hover:border-zinc-700 transition-colors">
                     <CardContent className="p-4 flex items-center justify-between">
@@ -207,14 +208,16 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-4xl font-black text-orange-500">
-                  {activities.reduce((acc, curr) => acc + (curr.suffer_score || 0), 0)}
+                  {loading ? '--' : activities.reduce((acc, curr) => acc + (curr.suffer_score || 0), 0)}
                 </div>
                 <div className="mt-4 h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
                    <div className="bg-orange-500 h-full w-[65%]" />
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-2 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3 text-green-500" /> 12% higher than last week
-                </p>
+                {!loading && (
+                  <p className="text-[10px] text-zinc-500 mt-2 flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3 text-green-500" /> 12% higher than last week
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
