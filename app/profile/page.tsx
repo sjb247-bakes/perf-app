@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ArrowLeft, User, Send, Bell } from 'lucide-react'
 import Link from 'next/link'
+import DailyCheckIn from '@/app/components/DailyCheckIn'
 
 export default function ProfilePage() {
   const [displayName, setDisplayName] = useState('')
@@ -124,6 +125,13 @@ export default function ProfilePage() {
 
       <main className="container mx-auto px-4 py-8 max-w-2xl">
         <div className="space-y-8">
+          {/* Daily Check-in */}
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight mb-4">Daily Check-in</h2>
+            <DailyCheckIn />
+          </div>
+
+          {/* Settings Section */}
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Your Settings</h2>
             <p className="text-zinc-400 mt-2">Manage your display name and notification preferences.</p>
