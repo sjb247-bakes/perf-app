@@ -118,7 +118,7 @@ export default function Dashboard() {
                       <Activity className="h-4 w-4 text-green-400" />
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
-                      <span className="text-4xl font-black">{wellness?.hrv_rmssd || '--'}</span>
+                      <span className="text-4xl font-black">{wellness?.hrv_last || '--'}</span>
                       <span className="text-xs text-zinc-500">ms</span>
                     </div>
                   </CardContent>
@@ -131,8 +131,8 @@ export default function Dashboard() {
                       <Battery className="h-4 w-4 text-yellow-400" />
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
-                      <span className="text-4xl font-black">{wellness?.body_battery_high || '--'}</span>
-                      <span className="text-xs text-zinc-500">Peak</span>
+                      <span className="text-4xl font-black">{wellness?.bb_wake || '--'}</span>
+                      <span className="text-xs text-zinc-500">Now</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -140,11 +140,11 @@ export default function Dashboard() {
                 <Card className="bg-zinc-900 border-zinc-800 text-white">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-zinc-400">Avg Stress</p>
+                      <p className="text-xs font-medium text-zinc-400">Sleep Stress</p>
                       <Zap className="h-4 w-4 text-purple-400" />
                     </div>
                     <div className="mt-2 flex items-baseline gap-2">
-                      <span className="text-4xl font-black">{wellness?.avg_stress || '--'}</span>
+                      <span className="text-4xl font-black">{wellness?.sleep_stress || '--'}</span>
                     </div>
                   </CardContent>
                 </Card>
