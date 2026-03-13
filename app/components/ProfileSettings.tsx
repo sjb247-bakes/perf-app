@@ -19,6 +19,7 @@ export default function ProfileSettings() {
   });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -61,6 +62,7 @@ export default function ProfileSettings() {
       if (error) throw error;
 
       setSaved(true);
+      setCollapsed(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -71,7 +73,29 @@ export default function ProfileSettings() {
 
   return (
     <div className="bg-zinc-900 rounded-lg shadow-md p-6 mb-6 border border-zinc-800">
-      <h2 className="text-xl font-bold mb-4 text-white">Profile & Context</h2>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-white">Profile & Context</h2>
+        {collapsed && (
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className="text-xs rounded-md border border-zinc-700 px-3 py-1.5 text-zinc-300 hover:text-white"
+          >
+            Edit profile
+          </button>
+        )}
+      </div>
+
+      {collapsed ? (
+        <div className="space-y-2 text-sm">
+          <p className="text-zinc-300"><span className="text-zinc-500">Name:</span> {profile.full_name || 'Not set'}</p>
+          <p className="text-zinc-300"><span className="text-zinc-500">Work type:</span> {profile.job_type}</p>
+          <p className="text-zinc-300">
+            <span className="text-zinc-500">Baseline activity:</span> {profile.baseline_activity_level}
+          </p>
+          {saved && <div className="text-green-400 text-sm font-medium">✓ Profile saved successfully!</div>}
+        </div>
+      ) : (
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Full Name */}
@@ -138,14 +162,23 @@ export default function ProfileSettings() {
           </select>
         </div>
 
-        {/* Save Button */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-green-600 text-white py-2 rounded-md font-medium hover:bg-green-700 disabled:bg-zinc-700"
-        >
-          {loading ? 'Saving...' : 'Save Profile'}
-        </button>
+        {/* Actions */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            className="w-full bg-zinc-800 text-zinc-200 py-2 rounded-md font-medium hover:bg-zinc-700"
+          >
+            Show Less
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-green-600 text-white py-2 rounded-md font-medium hover:bg-green-700 disabled:bg-zinc-700"
+          >
+            {loading ? 'Saving...' : 'Save Profile'}
+          </button>
+        </div>
 
         {saved && (
           <div className="text-green-400 text-sm font-medium">
@@ -153,6 +186,7 @@ export default function ProfileSettings() {
           </div>
         )}
       </form>
+      )}
     </div>
   );
 }

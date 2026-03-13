@@ -2,27 +2,52 @@
 
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function IntegrationSync() {
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState('');
+  const supabase = createClient();
 
   const handleSync = async () => {
     setSyncing(true);
     setMessage('');
 
     try {
-      // Trigger the backfill script
-      const response = await fetch('/api/integrations/garmin', {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const bearer = session?.access_token ?? '';
+      const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/([^.]+)\.supabase\.co/i)?.[1];
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
+      if (!user) {
+        setMessage('❌ You are not logged in.');
+        return;
+      }
+
+      if (!projectRef || !anonKey || !bearer) {
+        setMessage('❌ Missing session/config for sync.');
+        return;
+      }
+
+      // Trigger Edge Function directly with the current user JWT.
+      const response = await fetch(`https://${projectRef}.supabase.co/functions/v1/garmin-sync`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: anonKey,
+          Authorization: `Bearer ${bearer}`,
+        },
+        body: JSON.stringify({ userId: user.id, days: 1 }),
       });
 
+      const result = await response.json().catch(() => ({}));
+
       if (response.ok) {
-        setMessage('✓ Sync started! Data will appear shortly.');
+        setMessage(`✓ ${result?.message || 'Sync started! Data will appear shortly.'}`);
         setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage('❌ Sync failed. Check your integration settings.');
+        setMessage(`❌ ${result?.error || 'Sync failed. Check your integration settings.'}`);
       }
     } catch (error) {
       setMessage('❌ Error during sync. Check console.');

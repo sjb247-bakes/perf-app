@@ -27,8 +27,14 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const daysBack = body.days || 1;
     const after = Math.floor(Date.now() / 1000) - (daysBack * 24 * 60 * 60);
+    const targetUserId = typeof body.userId === 'string' ? body.userId : null;
 
-    const { data: integrations, error: intErr } = await supabase.from("user_integrations").select("*");
+    let query = supabase.from("user_integrations").select("*");
+    if (targetUserId) {
+      query = query.eq('user_id', targetUserId);
+    }
+
+    const { data: integrations, error: intErr } = await query;
     if (intErr) throw intErr;
 
     const summary = [];
@@ -60,7 +66,10 @@ Deno.serve(async (req) => {
             await supabase.from('user_integrations').update({ 
               access_token: tokenData.access_token, 
               refresh_token: tokenData.refresh_token, 
-              expires_at: new Date(tokenData.expires_at * 1000).toISOString() 
+              meta: {
+                ...(integration.meta ?? {}),
+                expires_at: new Date(tokenData.expires_at * 1000).toISOString(),
+              }
             }).eq('id', integration.id);
 
             // Fetch activities

@@ -25,27 +25,47 @@ export default function DailyCheckIn() {
   useEffect(() => {
     if (!user) return;
     
-    const fetchTodayCheckIn = async () => {
+    const fetchCheckInData = async () => {
       const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+      // Check for today's check-in
+      const { data: todayData } = await supabase
         .from('subjective_logs')
         .select('*')
         .eq('user_id', user.id)
         .eq('date', today)
         .single();
 
-      if (data) {
+      if (todayData) {
         setCheckIn({
-          physical_energy: data.physical_energy || 5,
-          mental_focus: data.mental_focus || 5,
-          stress_level: data.stress_level || 5,
-          notes: data.notes || '',
+          physical_energy: todayData.physical_energy || 5,
+          mental_focus: todayData.mental_focus || 5,
+          stress_level: todayData.stress_level || 5,
+          notes: todayData.notes || '',
         });
         setHasToday(true);
+      } else {
+        // If no today's check-in, load yesterday's as template
+        const { data: yesterdayData } = await supabase
+          .from('subjective_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', yesterday)
+          .single();
+
+        if (yesterdayData) {
+          setCheckIn({
+            physical_energy: yesterdayData.physical_energy || 5,
+            mental_focus: yesterdayData.mental_focus || 5,
+            stress_level: yesterdayData.stress_level || 5,
+            notes: '', // Don't copy notes, let user write fresh ones
+          });
+        }
       }
     };
 
-    fetchTodayCheckIn();
+    fetchCheckInData();
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,7 +102,10 @@ export default function DailyCheckIn() {
   return (
     <div className="bg-zinc-900 rounded-lg shadow-md p-6 mb-6 border border-zinc-800">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white">Daily Check-in</h2>
+        <div>
+          <h2 className="text-xl font-bold text-white">Daily Check-in</h2>
+          <p className="text-xs text-zinc-500 mt-1">Pre-filled from yesterday • Adjust as needed</p>
+        </div>
         {hasToday && <span className="text-sm text-green-400">✓ Updated today</span>}
       </div>
 

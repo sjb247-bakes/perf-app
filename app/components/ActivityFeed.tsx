@@ -66,7 +66,10 @@ export default function ActivityFeed() {
 
   return (
     <div className="bg-zinc-900 rounded-lg shadow-md p-6 border border-zinc-800">
-      <h3 className="font-bold text-lg mb-4 text-white">Daily Wellness Log</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg text-white">Daily Wellness Log</h3>
+        <span className="text-xs text-zinc-500">Last {visibleData.length} days</span>
+      </div>
       <div className="space-y-3">
         {visibleData.map((day) => (
           <div key={day.id} className="border-b border-zinc-700 pb-3 last:border-b-0">
@@ -93,13 +96,13 @@ export default function ActivityFeed() {
         ))}
       </div>
       
-      {/* Show More / Show Less Button */}
+      {/* Toggle Button */}
       {hasMore && (
         <button
           onClick={() => setExpandedCount(expandedCount === 5 ? dailyData.length : 5)}
           className="mt-4 w-full py-2 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded text-sm font-medium transition-colors"
         >
-          {expandedCount === 5 ? `Show More (${dailyData.length - 5} more)` : 'Show Less'}
+          {expandedCount === 5 ? `📊 Show More (${dailyData.length - 5} more)` : '📊 Show Less'}
         </button>
       )}
     </div>

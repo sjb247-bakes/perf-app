@@ -1,11 +1,12 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import MindsetAdvisor from '@/app/components/MindsetAdvisor';
-import ProfileSettings from '@/app/components/ProfileSettings';
-import ActivityFeed from '@/app/components/ActivityFeed';
 import IntegrationSync from '@/app/components/IntegrationSync';
+import StravaSessions from '@/app/components/StravaSessions';
 import Link from 'next/link';
-import { Link2, LogOut, User } from 'lucide-react';
+import { ArrowRight, Link2, LogOut, User } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardContent() {
   return (
@@ -50,17 +51,17 @@ export default function DashboardContent() {
             {/* Mindset Advisor */}
             <MindsetAdvisor />
 
-            {/* Activity Feed */}
-            <ActivityFeed />
+            {/* Strava Sessions */}
+            <StravaSessions />
+
+            {/* Wellness Log Preview */}
+            <WellnessLogPreview />
           </div>
 
           {/* Sidebar (Right - 1 col) */}
           <div className="space-y-6">
             {/* Integration Sync */}
             <IntegrationSync />
-
-            {/* Profile Settings */}
-            <ProfileSettings />
 
             {/* Quick Stats */}
             <QuickStats />
@@ -71,32 +72,98 @@ export default function DashboardContent() {
   );
 }
 
+function WellnessLogPreview() {
+  return (
+    <div className="bg-zinc-900 rounded-lg shadow-md p-6 border border-zinc-800">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-lg text-white">Wellness Log</h3>
+          <p className="text-sm text-zinc-400 mt-1">
+            Open the full page for daily log history and profile context controls.
+          </p>
+        </div>
+        <Link
+          href="/wellness"
+          className="inline-flex items-center gap-2 rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-200 hover:bg-zinc-700 hover:text-white"
+        >
+          Open
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+
+    </div>
+  );
+}
+
 /**
  * Quick stats widget showing today's key metrics at a glance
  */
 function QuickStats() {
+  const [metrics, setMetrics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const today = new Date().toISOString().split('T')[0];
+
+        // Fetch Garmin data
+        const { data: garminData } = await supabase
+          .from('garmin_daily')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .single();
+
+        // Fetch subjective data
+        const { data: subjectiveData } = await supabase
+          .from('subjective_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .single();
+
+        setMetrics({
+          sleepScore: garminData?.sleep_score ?? null,
+          hrv: garminData?.hrv_rmssd ?? garminData?.hrv_last ?? garminData?.hrv_weekly ?? null,
+          battery: garminData?.body_battery_high ?? garminData?.bb_wake ?? garminData?.body_battery_low ?? null,
+          stress: subjectiveData?.stress_level ?? garminData?.avg_stress ?? null,
+        });
+      } catch (error) {
+        console.error('Error fetching metrics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMetrics();
+  }, []);
+
   return (
     <div className="bg-zinc-900 rounded-lg shadow-md p-6 border border-zinc-800">
-      <h3 className="font-bold text-lg mb-4 text-white">Quick Metrics</h3>
+      <h3 className="font-bold text-lg mb-4 text-white">Today's Metrics</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-sm text-zinc-400">Sleep Score</span>
-          <span className="font-bold text-white">—</span>
+          <span className="font-bold text-white">{metrics?.sleepScore != null ? `${metrics.sleepScore}/100` : '—'}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm text-zinc-400">HRV Status</span>
-          <span className="font-bold text-white">—</span>
+          <span className="text-sm text-zinc-400">HRV (RMSSD)</span>
+          <span className="font-bold text-white">{metrics?.hrv != null ? `${Math.round(metrics.hrv)}ms` : '—'}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-sm text-zinc-400">Body Battery</span>
-          <span className="font-bold text-white">—</span>
+          <span className="font-bold text-white">{metrics?.battery != null ? `${metrics.battery}%` : '—'}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm text-zinc-400">Stress Level</span>
-          <span className="font-bold text-white">—</span>
+          <span className="text-sm text-zinc-400">Your Stress Level</span>
+          <span className="font-bold text-white">{metrics?.stress != null ? `${metrics.stress}/10` : '—'}</span>
         </div>
       </div>
-      <p className="text-xs text-zinc-500 mt-4">Complete your daily check-in to see live metrics</p>
+      <p className="text-xs text-zinc-500 mt-4">Updates when Garmin syncs & check-in is saved</p>
     </div>
   );
 }

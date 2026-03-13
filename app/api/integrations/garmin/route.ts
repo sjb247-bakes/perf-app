@@ -4,17 +4,32 @@ import { encrypt } from '@/lib/crypto'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json()
-
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
-    }
-
     const supabase = createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    let payload: Record<string, unknown> = {}
+    const contentType = req.headers.get('content-type') ?? ''
+
+    if (contentType.includes('application/json')) {
+      const rawBody = await req.text()
+      if (rawBody.trim().length > 0) {
+        try {
+          payload = JSON.parse(rawBody)
+        } catch {
+          return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+        }
+      }
+    }
+
+    const email = typeof payload.email === 'string' ? payload.email.trim() : ''
+    const password = typeof payload.password === 'string' ? payload.password : ''
+
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
     }
 
     // Encrypt credentials server-side before storing
