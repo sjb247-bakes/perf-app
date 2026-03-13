@@ -49,10 +49,10 @@ export async function GET(request: Request) {
         service: 'strava',
         access_token: data.access_token,
         refresh_token: data.refresh_token,
-        expires_at: new Date(data.expires_at * 1000).toISOString(),
         meta: {
           athlete: data.athlete,
           scope: searchParams.get('scope'),
+          expires_at: new Date(data.expires_at * 1000).toISOString(),
         }
       }, { onConflict: 'user_id,service' })
 
