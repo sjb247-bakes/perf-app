@@ -142,7 +142,7 @@ export default function IntegrationsPage() {
                       Connected
                     </span>
                   )}
-                </CardTitleEditor
+                </CardTitle>
                 <CardDescription className="text-zinc-400">
                   Sync your daily HRV, Sleep, and Body Battery recovery data.
                 </CardDescription>
