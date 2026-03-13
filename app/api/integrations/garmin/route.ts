@@ -5,10 +5,29 @@ import { encrypt } from '@/lib/crypto'
 export async function POST(req: NextRequest) {
   try {
     const supabase = createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    // First check if there's an active session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError) {
+      console.error('Session error:', sessionError.message)
+      return NextResponse.json({ 
+        error: 'Failed to get session',
+        details: sessionError.message 
+      }, { status: 401 })
+    }
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session) {
+      console.error('No active session found')
+      return NextResponse.json({ 
+        error: 'No active session. Please log in first.',
+        hint: 'Check /api/debug/session to verify your session'
+      }, { status: 401 })
+    }
+
+    const user = session.user
+    if (!user) {
+      return NextResponse.json({ error: 'User not found in session' }, { status: 401 })
     }
 
     let payload: Record<string, unknown> = {}

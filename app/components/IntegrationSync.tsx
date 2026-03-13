@@ -4,10 +4,24 @@ import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-export default function IntegrationSync() {
+type IntegrationSyncProps = {
+  compact?: boolean;
+};
+
+export default function IntegrationSync({ compact = false }: IntegrationSyncProps) {
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState('');
   const supabase = createClient();
+
+  const triggerSync = async (token: string) => {
+    return fetch('/api/integrations/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -15,39 +29,50 @@ export default function IntegrationSync() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: { session } } = await supabase.auth.getSession();
-      const bearer = session?.access_token ?? '';
-      const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/([^.]+)\.supabase\.co/i)?.[1];
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
       if (!user) {
         setMessage('❌ You are not logged in.');
         return;
       }
 
-      if (!projectRef || !anonKey || !bearer) {
-        setMessage('❌ Missing session/config for sync.');
+      let { data: { session } } = await supabase.auth.getSession();
+      let bearer = session?.access_token ?? '';
+
+      // Refresh stale client auth before sync (common on long-lived mobile tabs).
+      if (!bearer) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        bearer = refreshed.session?.access_token ?? '';
+      }
+
+      if (!bearer) {
+        setMessage('❌ Missing active auth session. Please refresh and retry.');
         return;
       }
 
-      // Trigger Edge Function directly with the current user JWT.
-      const response = await fetch(`https://${projectRef}.supabase.co/functions/v1/garmin-sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: anonKey,
-          Authorization: `Bearer ${bearer}`,
-        },
-        body: JSON.stringify({ userId: user.id, days: 1 }),
-      });
+      // Trigger server-side sync orchestrator; retry once after token refresh if needed.
+      let response = await triggerSync(bearer);
+      let result = await response.json().catch(() => ({}));
 
-      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const errText = String(result?.error || '').toLowerCase();
+        const shouldRetryAuth = response.status === 401 || errText.includes('invalid jwt');
+        if (shouldRetryAuth) {
+          const { data: refreshed } = await supabase.auth.refreshSession();
+          const retryBearer = refreshed.session?.access_token ?? '';
+          if (retryBearer) {
+            response = await triggerSync(retryBearer);
+            result = await response.json().catch(() => ({}));
+          }
+        }
+      }
+
 
       if (response.ok) {
-        setMessage(`✓ ${result?.message || 'Sync started! Data will appear shortly.'}`);
+        setMessage(`✓ ${result?.message || 'Sync completed.'}`);
         setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ ${result?.error || 'Sync failed. Check your integration settings.'}`);
+        const reason = result?.error || result?.message || `Sync failed (HTTP ${response.status})`;
+        setMessage(`❌ ${reason}`);
       }
     } catch (error) {
       setMessage('❌ Error during sync. Check console.');
@@ -57,10 +82,30 @@ export default function IntegrationSync() {
     }
   };
 
+  if (compact) {
+    return (
+      <div className="flex flex-col items-end">
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-zinc-700"
+          aria-label="Sync data now"
+        >
+          <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Syncing...' : 'Sync'}
+        </button>
+        {message && (
+          <p className={`mt-2 max-w-56 text-right text-xs ${message.includes('✓') ? 'text-green-400' : 'text-red-400'}`}>
+            {message}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="bg-zinc-900 rounded-lg shadow-md p-6 border border-zinc-800">
       <h3 className="font-bold text-lg mb-4 text-white">Data Sync</h3>
-      
       <button
         onClick={handleSync}
         disabled={syncing}

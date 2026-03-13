@@ -19,6 +19,9 @@ export default function DashboardContent() {
             <p className="text-zinc-400 mt-2">Real-time wellness, training, and mindset insights</p>
           </div>
           <div className="flex items-center gap-3">
+            <div className="lg:hidden">
+              <IntegrationSync compact />
+            </div>
             <Link
               href="/profile"
               className="rounded-md border border-zinc-800 bg-zinc-900 p-2 text-zinc-400 transition-colors hover:text-white"
@@ -46,25 +49,24 @@ export default function DashboardContent() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content (Left - 2 cols) */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Mindset Advisor */}
+          <div className="order-1 lg:order-1 lg:col-span-2">
             <MindsetAdvisor />
+          </div>
 
-            {/* Strava Sessions */}
+          <div className="order-2 lg:order-5">
+            <QuickStats />
+          </div>
+
+          <div className="order-3 lg:order-3 lg:col-span-2">
             <StravaSessions />
+          </div>
 
-            {/* Wellness Log Preview */}
+          <div className="order-4 lg:order-4 lg:col-span-2">
             <WellnessLogPreview />
           </div>
 
-          {/* Sidebar (Right - 1 col) */}
-          <div className="space-y-6">
-            {/* Integration Sync */}
+          <div className="order-5 hidden lg:block lg:order-2">
             <IntegrationSync />
-
-            {/* Quick Stats */}
-            <QuickStats />
           </div>
         </div>
       </div>
