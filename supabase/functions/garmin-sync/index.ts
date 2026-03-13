@@ -50,11 +50,13 @@ Deno.serve(async (req) => {
         await gc.login();
         const [sleep, hrv, wellness] = await Promise.all([gc.getSleepData(today), gc.getHeartRateVariability(today), gc.getDailyWellness(today)]);
         await supabase.from("garmin_daily").upsert({
-          user_id, date: today, sleep_score: sleep?.dailySleepDTO?.sleepScore ?? null,
-          hrv_rmssd: hrv?.hrvSummary?.lastNightAvg ?? null,
-          body_battery_high: wellness?.bodyBatteryHighLevel ?? null,
+          user_id,
+          date: today,
+          sleep_score: sleep?.dailySleepDTO?.sleepScore ?? sleep?.dailySleepDTO?.sleepScores?.overall?.value ?? null,
+          hrv_rmssd: hrv?.hrvSummary?.lastNightAvg ?? hrv?.hrvSummary?.rmssd ?? null,
+          body_battery_high: wellness?.bodyBatteryHighLevel ?? wellness?.bodyBatteryMostRecentValue ?? null,
           body_battery_low: wellness?.bodyBatteryLowLevel ?? null,
-          avg_stress: wellness?.averageStressLevel ?? null,
+          avg_stress: wellness?.averageStressLevel ?? wellness?.avgStressLevel ?? null,
           synced_at: new Date().toISOString()
         });
         console.log(`✅ Garmin synced for ${user_id}`);
