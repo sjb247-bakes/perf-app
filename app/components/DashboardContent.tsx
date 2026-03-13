@@ -48,25 +48,24 @@ export default function DashboardContent() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="order-1 lg:order-1 lg:col-span-2">
+        {/* Mobile layout */}
+        <div className="flex flex-col gap-6 lg:hidden">
+          <MindsetAdvisor />
+          <QuickStats />
+          <StravaSessions />
+          <WellnessLogPreview />
+        </div>
+
+        {/* Desktop layout */}
+        <div className="hidden lg:grid lg:grid-cols-3 gap-6">
+          <div className="col-span-2 space-y-6">
             <MindsetAdvisor />
-          </div>
-
-          <div className="order-5 hidden lg:block lg:order-2 lg:row-span-1">
-            <IntegrationSync />
-          </div>
-
-          <div className="order-2 lg:order-3">
-            <QuickStats />
-          </div>
-
-          <div className="order-3 lg:order-4 lg:col-span-2">
             <StravaSessions />
-          </div>
-
-          <div className="order-4 lg:order-5 lg:col-span-2">
             <WellnessLogPreview />
+          </div>
+          <div className="space-y-6">
+            <IntegrationSync />
+            <QuickStats />
           </div>
         </div>
       </div>
