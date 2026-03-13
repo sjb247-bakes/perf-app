@@ -1,158 +1,198 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { LogOut, User, Settings, Link2 } from "lucide-react";
-import Link from "next/link";
+'use client'
 
-export default async function DashboardPage() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
+import { Activity, Moon, Battery, Zap, Timer, Map, TrendingDown, TrendingUp, Settings } from 'lucide-react'
+import Link from 'next/link'
 
-  if (!user) {
-    redirect("/login");
+export default function Dashboard() {
+  const [loading, setLoading] = useState(true)
+  const [wellness, setWellness] = useState<any>(null)
+  const [activities, setActivities] = useState<any[]>([])
+  const [user, setUser] = useState<any>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setUser(user)
+
+      // 1. Fetch Latest Garmin Wellness
+      const { data: garminData } = await supabase
+        .from('garmin_daily')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(1)
+        .single()
+      
+      if (garminData) setWellness(garminData)
+
+      // 2. Fetch Recent Strava Activities
+      const { data: stravaData } = await supabase
+        .from('strava_activities')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('start_date', { ascending: false })
+        .limit(5)
+      
+      if (stravaData) setActivities(stravaData)
+
+    } catch (e) {
+      console.error('Failed to fetch dashboard data:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Fetch latest Garmin data for THIS user
-  const { data: metrics, error } = await supabase
-    .from("garmin_daily")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("date", { ascending: false })
-    .limit(7);
-
-  const latest = metrics?.[0];
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+        <div className="text-zinc-400 text-sm animate-pulse">Synchronizing performance data...</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-white">
+    <div className="flex min-h-screen flex-col bg-zinc-950 text-white pb-12">
       {/* Header */}
       <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/dashboard" className="text-xl font-bold tracking-tighter">
-            Performance
-          </Link>
+          <h1 className="text-xl font-black tracking-tighter uppercase italic text-blue-500">Performance app</h1>
           <div className="flex items-center gap-4">
-            <Link href="/profile" className="text-zinc-400 hover:text-white transition-colors">
-              <User className="h-5 w-5" />
-            </Link>
-            <Link href="/integrations" className="text-zinc-400 hover:text-white transition-colors">
-              <Link2 className="h-5 w-5" />
-            </Link>
-            <form action="/api/auth/signout" method="post">
-              <button className="text-zinc-400 hover:text-white transition-colors">
-                <LogOut className="h-5 w-5" />
-              </button>
-            </form>
+             <Link href="/admin" className="text-xs text-zinc-500 hover:text-white transition-colors">Admin</Link>
+             <Link href="/integrations">
+                <Settings className="h-5 w-5 text-zinc-400 hover:text-white" />
+             </Link>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 flex-1">
-        <div className="flex flex-col gap-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Welcome, {user.user_metadata?.display_name || 'User'}</h1>
-            <p className="text-zinc-400 mt-1">Here's your performance overview for {latest?.date ? new Date(latest.date).toLocaleDateString() : 'today'}.</p>
-          </div>
-
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <MetricCard 
-              label="Sleep Score" 
-              value={latest?.sleep_score} 
-              unit="" 
-              status={latest?.sleep_score >= 80 ? 'good' : latest?.sleep_score >= 60 ? 'okay' : 'poor'} 
-            />
-            <MetricCard 
-              label="HRV (Last)" 
-              value={latest?.hrv_last} 
-              unit="ms" 
-              status={latest?.hrv_status === 'balanced' ? 'good' : 'okay'} 
-            />
-            <MetricCard 
-              label="Body Battery" 
-              value={latest?.bb_wake} 
-              unit="" 
-              status={latest?.bb_wake >= 75 ? 'good' : latest?.bb_wake >= 50 ? 'okay' : 'poor'} 
-            />
-            <MetricCard 
-              label="Stress" 
-              value={latest?.avg_stress} 
-              unit="" 
-              status={latest?.avg_stress < 25 ? 'good' : latest?.avg_stress < 50 ? 'okay' : 'poor'} 
-            />
-          </div>
-
-          {/* Detailed View (Placeholder for now) */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="text-lg font-medium text-zinc-400">Sleep Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                    <span className="text-zinc-400">Duration</span>
-                    <span className="font-medium">{latest?.sleep_secs ? (latest.sleep_secs / 3600).toFixed(1) : '--'} hrs</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                    <span className="text-zinc-400">Deep Sleep</span>
-                    <span className="font-medium text-blue-400">{latest?.deep_pct ? `${latest.deep_pct}%` : '--'}</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                    <span className="text-zinc-400">REM Sleep</span>
-                    <span className="font-medium text-purple-400">{latest?.rem_pct ? `${latest.rem_pct}%` : '--'}</span>
-                  </div>
+      <main className="container mx-auto px-4 py-8 space-y-8 max-w-5xl">
+        {/* Readiness Section */}
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500 mb-4">Readiness & Recovery</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-zinc-900 border-zinc-800 text-white">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-400">Sleep Score</p>
+                  <Moon className="h-4 w-4 text-blue-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-4xl font-black">{wellness?.sleep_score || '--'}</span>
+                  <span className="text-xs text-zinc-500">/ 100</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader>
-                <CardTitle className="text-lg font-medium text-zinc-400">HRV & Readiness</CardTitle>
+            <Card className="bg-zinc-900 border-zinc-800 text-white">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-400">HRV (Last Night)</p>
+                  <Activity className="h-4 w-4 text-green-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-4xl font-black">{wellness?.hrv_rmssd || '--'}</span>
+                  <span className="text-xs text-zinc-500">ms</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-zinc-900 border-zinc-800 text-white">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-400">Body Battery</p>
+                  <Battery className="h-4 w-4 text-yellow-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-4xl font-black">{wellness?.body_battery_high || '--'}</span>
+                  <span className="text-xs text-zinc-500">Peak</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-zinc-900 border-zinc-800 text-white">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-zinc-400">Avg Stress</p>
+                  <Zap className="h-4 w-4 text-purple-400" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="text-4xl font-black">{wellness?.avg_stress || '--'}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Activity Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">Recent Activities</h2>
+            <div className="space-y-3">
+              {activities.length > 0 ? (
+                activities.map((act) => (
+                  <Card key={act.id} className="bg-zinc-900 border-zinc-800 text-white hover:border-zinc-700 transition-colors">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-lg ${act.type === 'Ride' ? 'bg-orange-600/10 text-orange-500' : 'bg-blue-600/10 text-blue-500'}`}>
+                           <Activity className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-sm">{act.name}</h3>
+                          <div className="flex items-center gap-3 text-[11px] text-zinc-500 mt-1">
+                            <span className="flex items-center gap-1"><Map className="h-3 w-3" /> {(act.distance / 1000).toFixed(1)}km</span>
+                            <span className="flex items-center gap-1"><Timer className="h-3 w-3" /> {Math.floor(act.moving_time / 60)}m</span>
+                            <span className="text-zinc-600">|</span>
+                            <span>{new Date(act.start_date).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-orange-500 uppercase tracking-tighter">Suffer Score</div>
+                        <div className="text-xl font-black">{act.suffer_score || '0'}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="bg-zinc-900/50 border border-dashed border-zinc-800 rounded-xl p-8 text-center">
+                  <p className="text-zinc-500 text-sm italic">No recent Strava activities found. Time to ride? 🚴‍♂️</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Training Load Column */}
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">Training Load</h2>
+            <Card className="bg-zinc-900 border-zinc-800 text-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Weekly Effort</CardTitle>
+                <CardDescription className="text-[10px]">Combined Suffer Score (Last 7 Days)</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                    <span className="text-zinc-400">Status</span>
-                    <span className={`font-medium capitalize ${latest?.hrv_status === 'balanced' ? 'text-green-400' : 'text-yellow-400'}`}>
-                      {latest?.hrv_status || '--'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                    <span className="text-zinc-400">Weekly Avg</span>
-                    <span className="font-medium">{latest?.hrv_weekly || '--'} ms</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
-                    <span className="text-zinc-400">SpO2 Avg</span>
-                    <span className="font-medium">{latest?.spo2_avg || '--'}%</span>
-                  </div>
+                <div className="text-4xl font-black text-orange-500">
+                  {activities.reduce((acc, curr) => acc + (curr.suffer_score || 0), 0)}
                 </div>
+                <div className="mt-4 h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                   <div className="bg-orange-500 h-full w-[65%]" />
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-2 flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3 text-green-500" /> 12% higher than last week
+                </p>
               </CardContent>
             </Card>
           </div>
         </div>
       </main>
     </div>
-  );
-}
-
-function MetricCard({ label, value, unit, status }: { label: string, value: any, unit: string, status: 'good' | 'okay' | 'poor' }) {
-  const statusColors = {
-    good: 'text-green-400',
-    okay: 'text-yellow-400',
-    poor: 'text-red-400'
-  };
-
-  return (
-    <Card className="bg-zinc-900 border-zinc-800">
-      <CardContent className="p-6">
-        <p className="text-sm font-medium text-zinc-400 uppercase tracking-wider">{label}</p>
-        <div className="flex items-baseline gap-1 mt-2">
-          <span className={`text-3xl font-bold ${statusColors[status]}`}>
-            {value !== undefined ? value : '--'}
-          </span>
-          <span className="text-zinc-500 text-sm">{unit}</span>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  )
 }
