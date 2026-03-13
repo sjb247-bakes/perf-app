@@ -30,23 +30,52 @@ export async function POST(request: Request) {
     const supabase = createClient()
 
     // 1. Find the user in our DB via their Strava Athlete ID (stored in meta)
+    // Strava owner_id in webhook corresponds to athlete.id in token response
     const { data: integration } = await supabase
       .from('user_integrations')
-      .select('user_id, access_token, refresh_token, id')
+      .select('*')
       .eq('service', 'strava')
       .filter('meta->athlete->id', 'eq', owner_id)
       .single()
 
     if (integration) {
       try {
-        // 2. Fetch the full activity from Strava
+        let accessToken = integration.access_token
+
+        // Check if token is expired
+        const isExpired = integration.expires_at ? new Date(integration.expires_at) <= new Date() : true
+        
+        if (isExpired) {
+          console.log('🔄 Token expired, refreshing for webhook...')
+          const refreshRes = await fetch('https://www.strava.com/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              client_id: process.env.STRAVA_CLIENT_ID,
+              client_secret: process.env.STRAVA_CLIENT_SECRET,
+              refresh_token: integration.refresh_token,
+              grant_type: 'refresh_token'
+            })
+          })
+          const tokenData = await refreshRes.json()
+          if (refreshRes.ok) {
+            accessToken = tokenData.access_token
+            await supabase.from('user_integrations').update({
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token,
+              expires_at: new Date(tokenData.expires_at * 1000).toISOString()
+            }).eq('id', integration.id)
+          }
+        }
+
+        // 2. Fetch the full activity detail
         const res = await fetch(`https://www.strava.com/api/v3/activities/${object_id}`, {
-          headers: { 'Authorization': `Bearer ${integration.access_token}` }
+          headers: { 'Authorization': `Bearer ${accessToken}` }
         })
         const act = await res.json()
 
         if (res.ok) {
-          // 3. Upsert into our DB
+          // 3. Save to database
           await supabase.from('strava_activities').upsert({
             id: act.id,
             user_id: integration.user_id,
@@ -60,10 +89,10 @@ export async function POST(request: Request) {
             max_heartrate: act.max_heartrate,
             suffer_score: act.suffer_score ?? null
           })
-          console.log(`✅ Activity ${object_id} saved to database.`)
+          console.log(`✅ Webhook activity saved: ${act.name}`)
         }
       } catch (e) {
-        console.error('❌ Failed to process webhook activity:', e)
+        console.error('❌ Webhook error:', e)
       }
     }
   }

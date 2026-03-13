@@ -11,11 +11,28 @@ export default function Dashboard() {
   const [wellness, setWellness] = useState<any>(null)
   const [activities, setActivities] = useState<any[]>([])
   const [user, setUser] = useState<any>(null)
+  const [syncing, setSyncing] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
     fetchData()
   }, [])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    try {
+      await fetch('https://logqawepzcjniphiucce.supabase.co/functions/v1/garmin-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: 1 })
+      })
+      await fetchData()
+    } catch (e) {
+      console.error('Sync failed:', e)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -66,6 +83,13 @@ export default function Dashboard() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <h1 className="text-xl font-black tracking-tighter uppercase italic text-blue-500">Performance app</h1>
           <div className="flex items-center gap-4">
+             <button 
+                onClick={handleSync}
+                disabled={syncing}
+                className="text-[10px] uppercase font-bold tracking-widest px-3 py-1 bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors disabled:opacity-50"
+             >
+                {syncing ? 'Syncing...' : 'Sync Now'}
+             </button>
              <Link href="/admin" className="text-xs text-zinc-500 hover:text-white transition-colors">Admin</Link>
              <Link href="/integrations">
                 <Settings className="h-5 w-5 text-zinc-400 hover:text-white" />
@@ -148,8 +172,11 @@ export default function Dashboard() {
                         <div>
                           <h3 className="font-bold text-sm">{act.name}</h3>
                           <div className="flex items-center gap-3 text-[11px] text-zinc-500 mt-1">
-                            <span className="flex items-center gap-1"><Map className="h-3 w-3" /> {(act.distance / 1000).toFixed(1)}km</span>
+                            <span className="flex items-center gap-1"><Map className="h-3 w-3" /> {(act.distance / 1000).toFixed(2)}km</span>
                             <span className="flex items-center gap-1"><Timer className="h-3 w-3" /> {Math.floor(act.moving_time / 60)}m</span>
+                            {act.average_heartrate && (
+                              <span className="flex items-center gap-1">Avg HR: {Math.round(act.average_heartrate)}</span>
+                            )}
                             <span className="text-zinc-600">|</span>
                             <span>{new Date(act.start_date).toLocaleDateString()}</span>
                           </div>
