@@ -53,20 +53,20 @@ export default function DashboardContent() {
             <MindsetAdvisor />
           </div>
 
-          <div className="order-2 lg:order-5">
+          <div className="order-5 hidden lg:block lg:order-2 lg:row-span-1">
+            <IntegrationSync />
+          </div>
+
+          <div className="order-2 lg:order-3">
             <QuickStats />
           </div>
 
-          <div className="order-3 lg:order-3 lg:col-span-2">
+          <div className="order-3 lg:order-4 lg:col-span-2">
             <StravaSessions />
           </div>
 
-          <div className="order-4 lg:order-4 lg:col-span-2">
+          <div className="order-4 lg:order-5 lg:col-span-2">
             <WellnessLogPreview />
-          </div>
-
-          <div className="order-5 hidden lg:block lg:order-2">
-            <IntegrationSync />
           </div>
         </div>
       </div>
